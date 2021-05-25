@@ -1,7 +1,6 @@
--- Got most of this code from https://github.com/EricTetz/reaper and made a few changes.
+-- Adapted from https://github.com/EricTetz/reaper over discussions on Reddit.
 local input = 0 -- which mono input to monitor (zero offset: 0 = first, 1 = second, ...)
 local tuner = "ReaTune" -- name of tuner effect to use
-local windowSize = 50 -- TODO: set "window size" parameter; only applies if using ReaTune
 local tunerTrackName = "tuner"
 
 function findTunerTrack()
@@ -27,27 +26,22 @@ function createTunerTrack()
   return track
 end
 
-function exclusiveSoloTunerTrack(tunerTrack)
-  local savedSoloStates = {}
-  for t=0,reaper.CountTracks(0)-1 do
-    local track = reaper.GetTrack(0,t)
-    savedSoloStates[track] = reaper.GetMediaTrackInfo_Value(track, "I_SOLO")
-    reaper.SetMediaTrackInfo_Value(track, "I_SOLO", track == tunerTrack and 1 or 0)
-  end
-  return savedSoloStates
-end
-
--- The tuner will appear if it was not created or the track will be deleted.
 function toggleTunerTrack()
   local track = findTunerTrack()
   if track then
-    reaper.DeleteTrack(track)
+    if reaper.TrackFX_GetFloatingWindow(track, 0) then
+       reaper.DeleteTrack(track)
+       return
+    end
+    reaper.TrackFX_Show(track, 0, 3)
   else
     track = createTunerTrack()
-    reaper.SetMediaTrackInfo_Value(track, "I_RECARM", 1) -- record arm
     reaper.TrackFX_Show(track, 0, 3)
     reaper.SetCursorContext(0, null)
   end
+  -- we record arm here, because if we're refloating the window, there's a chance
+  -- some other operation has unarmed the track
+  reaper.SetMediaTrackInfo_Value(track, "I_RECARM", 1)
 end
 
 reaper.Undo_BeginBlock()
